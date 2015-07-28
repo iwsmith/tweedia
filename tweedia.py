@@ -4,9 +4,6 @@ import tweepy
 import os
 import time
 
-CONSUMER_TOKEN="p9VZFZSkFS7vC4DCWwFTIRQir"
-CONF_FILE = os.path.join(os.getenv("HOME"), ".tweedia")
-
 def post_photo(api, status, photo_path):
     return api.update_with_media(photo_path, status)
 
@@ -21,33 +18,40 @@ def poll_dir(directory, action, sleep_duration=5, filter_fn = None):
             fpath = os.path.join(directory, f)
             action(fpath)
             cache.add(f)
-        time.sleep(sleep_duration)
+    time.sleep(sleep_duration)
 
 if __name__ == "__main__":
     import argparse
     import functools
-    import pickle
+    import ConfigParser
     parser = argparse.ArgumentParser("Automatically upload media to twitter")
     parser.add_argument("--directory", help="Directory to watch media for", default=os.getcwd())
+    parser.add_argument("--config", "-c", help="Configuration file to use", default=os.path.join(os.getenv("HOME"), ".tweedia"))
     parser.add_argument("--status", "-s", help="Status to include in tweets")
-    parser.add_argument("consumer_secret", help="Consumer Secret")
     parser.add_argument("-d", "--dryrun", help="Dry Run. Prints the name of new files", action="store_true")
 
     args = parser.parse_args()
 
-    config = dict()
-    auth = tweepy.OAuthHandler(CONSUMER_TOKEN, args.consumer_secret)
-    if os.path.isfile(CONF_FILE):
-        print("sd")
-        config = pickle.load(open(CONF_FILE, "r"))
-        auth.set_access_token(config["access_token"], config["access_secret"])
+    config = ConfigParser.RawConfigParser()
+    if os.path.isfile(args.config):
+        config.read(args.config)
+        auth = tweepy.OAuthHandler(config.get("auth","consumer_key"), config.get("auth", "consumer_secret"))
+        auth.set_access_token(config.get("auth","access_key"), config.get("auth", "access_secret"))
     else:
+        print("Please enter access key (https://apps.twitter.com/): ")
+        consumer_key = raw_input("Consumer key: ")
+        consumer_secret = raw_input("Consumer secret: ")
+        auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
         print("Please grant permission to tweedia: " + auth.get_authorization_url())
         verifier = raw_input("Verifier: ")
         auth.get_access_token(verifier)
-        config["access_token"] = auth.access_token
-        config["access_secret"] = auth.access_token_secret
-        pickle.dump(config, open(CONF_FILE, "w"), protocol = pickle.HIGHEST_PROTOCOL)
+        config.add_section("auth")
+        config.set("auth", "consumer_key", consumer_key)
+        config.set("auth", "consumer_secret", consumer_secret)
+        config.set("auth", "access_key", auth.access_token)
+        config.set("auth", "access_secret", auth.access_token_secret)
+        with open(args.config, "w") as fp:
+            config.write(fp)
 
     api = tweepy.API(auth, wait_on_rate_limit=True, compression=True)
 
