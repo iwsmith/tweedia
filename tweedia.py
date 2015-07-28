@@ -21,7 +21,7 @@ def poll_dir(directory, action, sleep_duration=5, filter_fn = None):
             fpath = os.path.join(directory, f)
             action(fpath)
             cache.add(f)
-    time.sleep(sleep_duration)
+        time.sleep(sleep_duration)
 
 if __name__ == "__main__":
     import argparse
